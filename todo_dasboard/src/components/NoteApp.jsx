@@ -1,50 +1,77 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { v4 as uuidv4 } from 'uuid';
-import TodoItem from './TodoItem';
 import { GiNotebook } from "react-icons/gi";
+import TodoItem from './TodoItem';
+import API_URL from './ApiPath';
 
-const LOCAL_STORAGE_KEY = 'tasks';
-const LIMIT = 50;
+const localStorageKey = 'tasks'
+const limit = 50;
 
-function App() {
+function NoteApp() {
   const [task, setTask] = useState('');
-  const [tasks, setTasks] = useState([]);
+  const [todos, setTodos] = useState([])
+  const [fetchedtasks, setFecthedtasks] = useState([])
+
 
   useEffect(() => {
-    const storedTasks = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY));
-    if (storedTasks) {
-      setTasks(storedTasks);
+    const storedData = JSON.parse(localStorage.getItem(localStorageKey))
+    if (storedData) {
+      setTodos(storedData)
+    } else {
+      fetchTasks()
     }
-    fetchTasks();
-  }, []);
+  }, [])
 
   const fetchTasks = async () => {
     try {
-      const response = await axios.get('http://localhost:4000/fetchAllTasks');
-      setTasks(prevTasks => [...prevTasks, ...response.data]);
+      const response = await axios.get(`${API_URL}/fetchalltasks`)
+      setFecthedtasks(response.data)
+      console.log(response.data)
     } catch (error) {
-      console.error('Error fetching tasks:', error);
+      console.log(error)
+    }
+  }
+  const sendTobackend = async (text) => {
+    try {
+      const response = await axios.post(`${API_URL}/add`, text)
+      console.log(response)
+      return response
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+
+
+  const addTask = async () => {
+
+    const updatedTodos = [...todos, task];
+
+
+    if (updatedTodos.length > limit) {
+      localStorage.removeItem(localStorageKey);
+
+      try {
+
+        for (let text of updatedTodos) {
+          console.log(text)
+          const taskOutput = await sendTobackend({ text })
+          if(taskOutput.status === 200){
+            alert("Todo Added Successfully")
+          }
+          console.log(taskOutput)
+        }
+
+      } catch (error) {
+        console.error('Error adding tasks:', error);
+        alert('Error adding tasks');
+      }
+    } else {
+      localStorage.setItem(localStorageKey, JSON.stringify(updatedTodos));
+      setTodos(updatedTodos);
     }
   };
 
-  const addTask = async () => {
-    const newTask = { id: uuidv4(), text: task };
-    const newTasks = [...tasks, newTask];
-    if (newTasks.length > LIMIT) {
-      try {
-        await axios.post('http://localhost:4000/add', { tasks: newTasks });
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
-        setTasks([]); // Clear tasks after sending to the backend
-      } catch (error) {
-        console.error('Error adding task:', error);
-      }
-    } else {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTasks));
-      setTasks(newTasks); // Update state with new tasks
-    }
-    setTask(''); // Clear the input field after adding the task
-  };
 
   return (
     <div className='main--container'>
@@ -61,13 +88,20 @@ function App() {
         </div>
         <div className="task-list">
           <h3>Notes</h3>
-          {tasks && tasks.map((todo) => (
-            <TodoItem todo={todo} key={todo.id} />
+          {todos && todos.map(item => (
+            <>
+              <p>{item}</p>
+              <hr />
+            </>
           ))}
+          {fetchedtasks && fetchedtasks.map(item => (
+            <TodoItem todo={item} key={item._id} />
+          ))}
+
         </div>
       </div>
-      </div>
+    </div>
   );
 }
 
-export default App;
+export default NoteApp;
